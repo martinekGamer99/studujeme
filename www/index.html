@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=750, height=1334, initial-scale=1">
+<title>Study Sprint — Flashcards & Quiz</title>
+<style>
+  :root{
+    --bg:#0E111A;
+    --surface:#1A1E2E;
+    --surface-2:#22273A;
+    --text:#E8EAF2;
+    --muted:#8B90A8;
+    --line:#2A3048;
+    --line-light:#2E3652;
+    --accent:#E86A3A;
+    --accent-2:#2BBBA8;
+    --card-shadow: 0 16px 32px rgba(0,0,0,.45), 0 8px 0 #0A0E18;
+    --radius-sm:12px;
+    --radius-md:16px;
+    --radius-lg:20px;
+    --radius-pill:999px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family: Inter, ui-sans-serif, system-ui, Helvetica, Arial, sans-serif}
+  html,body{
+    width:750px;
+    height:1334px;
+    margin:0;
+    padding:0;
+    overflow:hidden;
+    background:var(--bg);
+    color:var(--text);
+  }
+  .phone{
+    width:750px;
+    height:1334px;
+    background:
+      radial-gradient(900px 500px at 30% -5%, rgba(232,106,58,.08), transparent 70%),
+      radial-gradient(700px 600px at 90% 105%, rgba(43,187,168,.06), transparent 70%),
+      var(--bg);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    position:relative;
+  }
+
+  /* Header — minimal, no app title */
+  .header{
+    padding:20px 20px;
+    background:var(--surface);
+    border-bottom:3px solid var(--line);
+    flex-shrink:0;
+  }
+  .dataset-bar{
+    margin-top:0;
+    display:flex;align-items:center;gap:14px;
+    border:2px solid var(--line);
+    padding:20px 18px;
+    background:var(--surface-2);
+    border-radius:var(--radius-md);
+    box-shadow: 0 6px 0 rgba(0,0,0,.2);
+  }
+  .dataset-icon{width:52px;height:52px;background:var(--bg);border:2px solid var(--line);border-radius:var(--radius-sm);display:grid;place-items:center;font-size:18px;font-weight:900;flex-shrink:0;color:var(--muted)}
+  .dataset-meta{flex:1;min-width:0}
+  .dataset-meta b{font-size:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;letter-spacing:-.4px}
+  .dataset-meta span{font-size:18px;color:var(--muted);font-weight:700}
+  .btn-import{
+    background:var(--text);color:var(--bg);border:2px solid var(--line);padding:18px 22px;
+    font-weight:900;font-size:22px;cursor:pointer;letter-spacing:-.2px;white-space:nowrap;
+    border-radius:var(--radius-sm);
+    box-shadow: 0 4px 0 rgba(0,0,0,.3);
+    transition: transform .1s, box-shadow .1s;
+  }
+  .btn-import:active{transform:translateY(3px);box-shadow: 0 1px 0 rgba(0,0,0,.3)}
+
+  /* Tabs — bottom bar (app) */
+  .tabs{
+    display:flex;flex-shrink:0;
+    padding:16px 20px 20px;
+    gap:12px;
+    background:var(--surface);
+    border-top:1px solid rgba(255,255,255,.08);
+  }
+  .tab{
+    flex:1;display:flex;align-items:center;justify-content:center;
+    padding:22px 10px;
+    background:var(--surface-2);color:var(--muted);font-weight:900;font-size:24px;letter-spacing:-.4px;
+    cursor:pointer;border:1px solid rgba(255,255,255,.06);
+    border-radius:var(--radius-md);
+    text-transform:uppercase;
+    transition: background .15s, color .15s, transform .1s;
+  }
+  .tab:active{transform:scale(.98)}
+  .tab.active{background:var(--accent-2);color:#0E111A;border-color:transparent;box-shadow: 0 8px 20px rgba(43,187,168,.22)}
+
+  /* Views */
+  .viewport{flex:1;overflow:auto;position:relative;background:var(--bg);display:flex;flex-direction:column}
+  .view{display:none;padding:24px 20px 24px;min-height:100%;flex-direction:column;flex:1}
+  .view.active{display:flex}
+
+  /* Minimal cycle indicator */
+  .cycle-line{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:10px;
+    font-size:16px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);
+  }
+  .cycle-line strong{color:var(--text);letter-spacing:-.3px;text-transform:none;font-size:18px}
+  .bar{height:14px;background:#0A0E18;border:2px solid var(--line);overflow:hidden;margin-bottom:16px;border-radius:var(--radius-pill);padding:2px}
+  .fill{height:100%;width:0%;background:var(--accent);transition:width .35s ease;border-radius:var(--radius-pill)}
+
+  /* Flashcard — app card */
+  .card-scene{flex:0 0 auto;display:flex;align-items:center;justify-content:center;perspective:1200px;min-height:720px;margin:14px 0 18px}
+  .card{
+    width:100%;min-height:720px;position:relative;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.2,.8,.2,1);
+    cursor:pointer;
+  }
+  .card.flipped{transform:rotateY(180deg)}
+  .face{
+    position:absolute;inset:0;
+    background:var(--surface);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:28px;
+    padding:40px 32px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+    backface-visibility:hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.2);
+  }
+  .face.back{transform:rotateY(180deg);background:var(--surface-2);border-radius:28px}
+  .q{font-size:72px;font-weight:900;line-height:1.1;letter-spacing:-1.6px;max-width:900px;color:var(--text);overflow-wrap:break-word}
+  .a{font-size:66px;font-weight:900;line-height:1.14;letter-spacing:-1.2px;color:var(--text);max-width:900px;overflow-wrap:break-word}
+  .flash-actions{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .btn{
+    border:none;border-radius:999px;padding:28px 16px;font-weight:800;font-size:26px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.2px;
+    transition: transform .1s, opacity .1s;
+  }
+  .btn:active{transform:scale(.98);opacity:.9}
+  .btn-again{background:rgba(255,255,255,.08);color:var(--text);backdrop-filter:blur(10px)}
+  .btn-knew{background:var(--accent);color:#fff;box-shadow: 0 10px 24px rgba(232,106,58,.28)}
+  .btn-next{background:var(--text);color:var(--bg);width:100%;margin-top:14px;padding:28px 16px;font-size:26px;border-radius:999px}
+  .btn-quiz{border:1px solid rgba(255,255,255,.08);background:var(--surface);color:var(--text);text-align:left;justify-content:flex-start;padding:28px 22px;font-size:28px;text-transform:none;letter-spacing:-.2px;font-weight:700;box-shadow: 0 8px 20px rgba(0,0,0,.18);line-height:1.2;border-radius:20px}
+  .btn-quiz:active{transform:scale(.99)}
+  .btn-quiz.correct{background:var(--accent-2);color:#0E111A;border-color:transparent;box-shadow: 0 10px 24px rgba(43,187,168,.22)}
+  .btn-quiz.wrong{background:rgba(180,35,24,.14);color:#FF8A8A;border-color:rgba(180,35,24,.4)}
+  .btn-quiz:disabled{opacity:1;pointer-events:none}
+  .quiz-q{border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:28px 24px;margin-bottom:16px;background:var(--surface);box-shadow: 0 12px 32px rgba(0,0,0,.25)}
+  .quiz-q p{font-size:52px;font-weight:900;line-height:1.14;letter-spacing:-1.2px;overflow-wrap:break-word}
+  .choices{display:grid;gap:14px;flex:1;align-content:start}
+  #view-quiz .choices .btn-quiz{flex:1}
+  .quiz-feedback{
+    margin-top:14px;padding:20px 22px;font-weight:900;font-size:22px;display:none;
+    border:2px solid var(--line);border-radius:var(--radius-md);text-transform:uppercase;letter-spacing:-.2px;
+    box-shadow: 0 6px 0 rgba(0,0,0,.2);
+  }
+  .quiz-feedback.show{display:block}
+  .quiz-feedback.ok{background:var(--accent-2);color:#0E111A}
+  .quiz-feedback.bad{background:var(--surface-2);color:#FF8A8A;border-color:#B42318}
+  .tiny{font-size:15px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.3;font-weight:700;letter-spacing:.2px}
+  .loading{
+    position:absolute;inset:0;
+    background:var(--bg);
+    display:none;align-items:center;justify-content:center;flex-direction:column;gap:28px;
+    z-index:20;
+    border:2px solid var(--line);
+    border-radius:0;
+  }
+  .loading.show{display:flex}
+  .loading p, .loading span{text-align:center}
+  .spinner{
+    width:72px;height:72px;
+    border:6px solid var(--line-light);
+    border-top-color:var(--accent);
+    border-radius:50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading p{font-size:28px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:var(--text)}
+  .loading span{font-size:18px;font-weight:700;color:var(--muted);letter-spacing:.5px}
+  .toast{
+    position:absolute;left:24px;right:24px;bottom:24px;
+    background:var(--surface-2);color:var(--text);
+    border:2px solid var(--line);
+    border-radius:var(--radius-md);
+    padding:20px 24px;font-size:20px;font-weight:900;
+    transform:translateY(200%);transition:.22s cubic-bezier(.2,.8,.2,1);
+    text-align:center;letter-spacing:-.2px;
+    z-index:30;
+    box-shadow: 0 12px 28px rgba(0,0,0,.4), 0 6px 0 rgba(0,0,0,.25);
+  }
+  .toast.show{transform:translateY(0)}
+  input[type=file]{display:none}
+</style>
+</head>
+<body>
+<div class="phone" id="phone">
+  <div class="header">
+    <div class="dataset-bar">
+      <div class="dataset-icon">Aa</div>
+      <div class="dataset-meta">
+        <b id="datasetName">Default Study Set</b>
+        <span id="datasetCount">10 questions</span>
+      </div>
+      <button class="btn-import" id="btnImport">IMPORT JSON</button>
+      <input type="file" id="fileInput" accept=".json,application/json">
+    </div>
+  </div>
+
+  <div class="viewport">
+    <div class="view active" id="view-flash">
+      <div class="cycle-line"><span>Cycle</span><strong id="f-cycle">—</strong></div>
+      <div class="bar"><div class="fill" id="f-fill"></div></div>
+
+      <div class="card-scene">
+        <div class="card" id="flashCard">
+          <div class="face front">
+            <div class="q" id="flashQ">Question A</div>
+          </div>
+          <div class="face back">
+            <div class="a" id="flashA">Answer A</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flash-actions" id="flashActions">
+        <button class="btn btn-again" id="btnAgain">Again</button>
+        <button class="btn btn-knew" id="btnKnew">Got it</button>
+      </div>
+      <button class="btn btn-next" id="btnNextFlash" style="display:none">Next</button>
+    </div>
+
+    <div class="view" id="view-quiz">
+      <div class="cycle-line"><span>Progress</span><strong id="q-cycle">—</strong></div>
+      <div class="bar"><div class="fill" id="q-fill"></div></div>
+
+      <div class="quiz-q">
+        <p id="quizQ">Question A</p>
+      </div>
+      <div class="choices" id="choices"></div>
+      <div class="quiz-feedback" id="quizFeedback"></div>
+      <button class="btn btn-next" id="btnNextQuiz" style="display:none">Next</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="flash">Flashcards</button>
+    <button class="tab" data-tab="quiz">Quiz</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="loading" id="loadingScreen">
+    <div class="spinner"></div>
+    <p>Loading dataset</p>
+    <span id="loadingDetail">Preparing cards…</span>
+  </div>
+  <audio id="sfxCorrect" src="Correct.mp3" preload="auto"></audio>
+  <audio id="sfxWrong" src="wrong.mp3" preload="auto"></audio>
+</div>
+
+<script>
+const DEFAULT_DATA = {
+  name: "Default Study Set",
+  questions: [
+    { question: "Question A", answer: "Answer A" },
+    { question: "Question B", answer: "Answer B" },
+    { question: "Question C", answer: "Answer C" },
+    { question: "Question D", answer: "Answer D" },
+    { question: "Question E", answer: "Answer E" },
+    { question: "Question F", answer: "Answer F" },
+    { question: "Question G", answer: "Answer G" },
+    { question: "Question H", answer: "Answer H" },
+    { question: "Question I", answer: "Answer I" },
+    { question: "Question J", answer: "Answer J" }
+  ]
+};
+
+let dataset = loadDataset();
+let deckFlash = [];
+let deckQuiz = [];
+let flashCycle = 1, quizCycle = 1;
+let flashCurrent = null;
+let quizCurrent = null;
+
+const $ = s => document.querySelector(s);
+const flashCard = $('#flashCard');
+const flashQ = $('#flashQ');
+const flashA = $('#flashA');
+const fFill = $('#f-fill'), fCycleEl = $('#f-cycle');
+const qFill = $('#q-fill'), qCycleEl = $('#q-cycle');
+const quizQ = $('#quizQ'), choicesEl = $('#choices'), quizFeedback = $('#quizFeedback');
+const btnNextFlash = $('#btnNextFlash'), btnNextQuiz = $('#btnNextQuiz');
+
+function loadDataset(){
+  try{
+    const raw = localStorage.getItem('study_dataset');
+    if(raw){
+      const p = JSON.parse(raw);
+      if(p && Array.isArray(p.questions) && p.questions.length>0) return { name: p.name || 'Imported Set', questions: p.questions };
+    }
+  }catch{}
+  return structuredClone(DEFAULT_DATA);
+}
+function saveDataset(){
+  localStorage.setItem('study_dataset', JSON.stringify({name: dataset.name, questions: dataset.questions}));
+}
+function shuffle(a){
+  const b=[...a];
+  for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]] }
+  return b;
+}
+function refillDeck(type){
+  const idxs = dataset.questions.map((_,i)=>i);
+  const sh = shuffle(idxs);
+  if(type==='flash'){ deckFlash = sh; flashCycle++; } else { deckQuiz = sh; quizCycle++; }
+}
+
+function updateDatasetUI(){
+  $('#datasetName').textContent = dataset.name;
+  $('#datasetCount').textContent = dataset.questions.length + ' questions';
+  deckFlash = shuffle(dataset.questions.map((_,i)=>i));
+  deckQuiz = shuffle(dataset.questions.map((_,i)=>i));
+  flashCycle=1; quizCycle=1;
+  nextFlash(); nextQuiz();
+  updateProgress();
+}
+
+function updateProgress(){
+  const total = dataset.questions.length;
+  let fDone = total - deckFlash.length - 1; if(fDone<0) fDone=0; if(flashCurrent==null) fDone=0;
+  fFill.style.width = (fDone/total*100)+'%';
+  fCycleEl.textContent = `Cycle ${flashCycle} — ${fDone+1} / ${total}`;
+  let qd = total - deckQuiz.length - 1; if(qd<0) qd=0; if(quizCurrent==null) qd=0;
+  qFill.style.width = (qd/total*100)+'%';
+  qCycleEl.textContent = `Cycle ${quizCycle} — ${qd+1} / ${total}`;
+}
+
+function nextFlash(){
+  if(dataset.questions.length===0) return;
+  if(deckFlash.length===0) refillDeck('flash');
+  const idx = deckFlash.pop();
+  flashCurrent = idx;
+  const item = dataset.questions[idx];
+  flashQ.textContent = item.question;
+  flashA.textContent = item.answer;
+  flashCard.classList.remove('flipped');
+  btnNextFlash.style.display='none';
+  $('#flashActions').style.display='grid';
+  updateProgress();
+}
+flashCard.addEventListener('click', ()=> flashCard.classList.toggle('flipped'));
+$('#btnKnew').addEventListener('click', ()=>{
+  playSfx(true);
+  flashCard.classList.add('flipped');
+  $('#flashActions').style.display='none';
+  btnNextFlash.style.display='block';
+});
+$('#btnAgain').addEventListener('click', ()=>{
+  playSfx(false);
+  flashCard.classList.add('flipped');
+  $('#flashActions').style.display='none';
+  btnNextFlash.style.display='block';
+});
+btnNextFlash.addEventListener('click', nextFlash);
+
+function nextQuiz(){
+  if(dataset.questions.length===0) return;
+  if(deckQuiz.length===0) refillDeck('quiz');
+  const idx = deckQuiz.pop();
+  quizCurrent = idx;
+  const item = dataset.questions[idx];
+  quizQ.textContent = item.question;
+  const correct = item.answer;
+  const pool = dataset.questions.filter((_,i)=>i!==idx).map(q=>q.answer);
+  const picks = shuffle(pool).slice(0, Math.min(3, pool.length));
+  let options = shuffle([...picks, correct]);
+  choicesEl.innerHTML='';
+  options.forEach(opt=>{
+    const btn = document.createElement('button');
+    btn.className='btn btn-quiz';
+    btn.textContent = opt;
+    btn.addEventListener('click', ()=> handleAnswer(btn, opt, correct));
+    choicesEl.appendChild(btn);
+  });
+  quizFeedback.className='quiz-feedback';
+  quizFeedback.style.display='none';
+  btnNextQuiz.style.display='none';
+  updateProgress();
+}
+function handleAnswer(btnEl, chosen, correct){
+  const buttons = [...choicesEl.children];
+  buttons.forEach(b=> b.disabled=true);
+  const isCorrect = chosen===correct;
+  playSfx(isCorrect);
+  buttons.forEach(b=>{
+    if(b.textContent===correct) b.classList.add('correct');
+    if(b===btnEl && !isCorrect) b.classList.add('wrong');
+  });
+  quizFeedback.textContent = isCorrect ? 'Correct — ' + correct : 'Correct: ' + correct;
+  quizFeedback.className = 'quiz-feedback show ' + (isCorrect?'ok':'bad');
+  quizFeedback.style.display='block';
+  btnNextQuiz.style.display='block';
+}
+btnNextQuiz.addEventListener('click', nextQuiz);
+
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    const tab=t.dataset.tab;
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    $('#view-'+tab).classList.add('active');
+  });
+});
+
+function playSfx(ok){
+  const id = ok ? 'sfxCorrect' : 'sfxWrong';
+  const a = document.getElementById(id);
+  if(!a) return;
+  try{ a.currentTime=0; a.volume=0.85; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch{}
+}
+function showLoading(onDone){
+  const el = $('#loadingScreen');
+  const detail = $('#loadingDetail');
+  detail.textContent = 'Preparing ' + dataset.questions.length + ' cards…';
+  el.classList.add('show');
+  const ms = 1000 + Math.random()*1000;
+  setTimeout(()=>{ el.classList.remove('show'); if(onDone) onDone(); }, ms);
+}
+$('#btnImport').addEventListener('click', ()=> $('#fileInput').click());
+$('#fileInput').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const json = JSON.parse(text);
+    const validated = validateDataset(json, file.name.replace(/\.json$/,''));
+    dataset = validated;
+    saveDataset();
+    // fake 1-2s loading
+    $('#loadingDetail').textContent = 'Preparing ' + dataset.questions.length + ' cards…';
+    $('#loadingScreen').classList.add('show');
+    setTimeout(()=>{
+      updateDatasetUI();
+      $('#loadingScreen').classList.remove('show');
+      toast('Imported ' + dataset.questions.length + ' cards');
+    }, 1000 + Math.random()*1000);
+  }catch(err){
+    toast('Import failed: ' + err.message, true);
+  } finally { e.target.value=''; }
+});
+function validateDataset(json, fallbackName){
+  if(!json || typeof json!=='object') throw new Error('JSON must be an object');
+  let qs = json.questions;
+  if(!Array.isArray(qs)) throw new Error('Missing "questions" array');
+  qs = qs.filter(q=> q && typeof q.question==='string' && typeof q.answer==='string' && q.question.trim() && q.answer.trim())
+         .map(q=> ({question: q.question.trim(), answer: q.answer.trim()}));
+  if(qs.length===0) throw new Error('No valid {question, answer} entries');
+  return { name: (json.name && String(json.name).trim()) || fallbackName || 'Imported Set', questions: qs };
+}
+let toastTimer;
+function toast(msg, isError){
+  const el=$('#toast');
+  el.textContent=msg;
+  el.style.background = isError ? '#B42318' : '#1B2430';
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=> el.classList.remove('show'), 2400);
+}
+const phone=$('#phone');
+phone.addEventListener('dragover', e=>{ e.preventDefault(); phone.style.outline='4px solid #1B2430'; });
+phone.addEventListener('dragleave', ()=> phone.style.outline='');
+phone.addEventListener('drop', async e=>{
+  e.preventDefault(); phone.style.outline='';
+  const f=e.dataTransfer.files[0];
+  if(!f || !f.name.endsWith('.json')) return toast('Drop a .json file', true);
+  try{
+    const txt=await f.text(); const j=JSON.parse(txt);
+    dataset=validateDataset(j, f.name.replace(/\.json$/,''));
+    saveDataset();
+    $('#loadingDetail').textContent = 'Preparing ' + dataset.questions.length + ' cards…';
+    $('#loadingScreen').classList.add('show');
+    setTimeout(()=>{
+      updateDatasetUI();
+      $('#loadingScreen').classList.remove('show');
+      toast('Imported ' + dataset.name);
+    }, 1000 + Math.random()*1000);
+  }catch(err){ toast('Import failed: '+err.message, true); }
+});
+updateDatasetUI();
+document.addEventListener('keydown', e=>{
+  const flashActive = $('#view-flash').classList.contains('active');
+  if(flashActive){
+    if(e.code==='Space'){ e.preventDefault(); flashCard.classList.toggle('flipped'); }
+    if(e.code==='ArrowRight' && btnNextFlash.style.display!=='none') nextFlash();
+  } else {
+    if(e.code==='ArrowRight' && btnNextQuiz.style.display!=='none') nextQuiz();
+  }
+});
+</script>
+</body>
+</html>
